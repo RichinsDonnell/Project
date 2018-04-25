@@ -9,8 +9,13 @@ var element_to_animate;
 var element_to_animate_from ; 
 var element_to_animate_to;  
 
+var user_entered_variables = [];
+
 function onWindowLoad()
 {
+	context = document.getElementById("myCanvas").getContext('2d'); 
+	//context.font= "12px cFont";
+
 	paper.setup('myCanvas');
 	unpause = false ; 
 	generateAst(); 
@@ -19,19 +24,27 @@ function onWindowLoad()
 	/*?!??!?!?!?!?!?!!?!?!?!?!!?!? Uncomment ONE of the following 'program' variables */
 	
 	// #Uncomment the line below to see visualizations of the heterogeneous array growing , and being modified  
-	//program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1] ;a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
-	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ; j-- ; }  array[j + 1]= value ; i++ ; } console.log(array)"; 
+	// program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1]; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
+	// /*insert*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
+	
+	// /*shell sort*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55];  var increment = array.length / 2; while (increment > 0) { var i = increment; while(i < array.length) { var j = i; var temp = array[i]; while (j >= increment && array[j-increment] > temp) { array[j] = array[j-increment]; j = j - increment;} array[j] = temp; i++;} if (increment == 2) { increment = 1; } else { increment = parseInt(increment*5 / 11);}} console.log(array)";
+	///*bubble*/ program = "var array = [54, 26, 93, 17, 77, 31,  44, 55]; var len = array.length; var i = 0;     while( i < len){var j=0;var stop = len - i; while (j < stop){  if (array[j] > array[j+1]){ var temp = array[j]; array[j] = array[j+1]; array[j+1] = temp;} j++;}i++;} console.log(array)";
+	/*selection*/ program = "var array = [54, 26, 93, 17, 31, 44, 55]; var len = array.length; var i = 0; while (i < len){ var min = i; var j = i+1; while ( j < len){ if (array[j] < array[min]){ min = j; } j++; } if (i != min){ var temp = array[min]; array[min] = array[i]; array[i] = temp; } i++;}";
 
 
 	/* generate abstract syntax tree */ 
 	ast = esprima.parse(program); 
 	
+
 	console.log("User Entered Code:"); 
 	console.log(astring.generate(ast)); 	
 	
 	/* add global variables that hold the snapshot of the array */ 
 	ast.body = global_variables_ast.body.concat(ast.body)
 	
+	/* get a list of all variables that this tool can monitor, allow user to select one */ 
+	getGlobalVariablesFromCode(ast);
+
 	/* recursively walk the ast, modifying it where necessary. This is where the code is analysed and necessary code is added in  */ 
 	r_walk(ast);
 
@@ -39,14 +52,51 @@ function onWindowLoad()
 	var modified_program = astring.generate(ast) ; 
 	console.log("Internally Generated Code:"); 
 	console.log(modified_program); 
-	eval(modified_program); 
+	
+	/* run the simulation */ 
+	eval(modified_program);
+
+	
+	/* show the simulation */ 
 	showVisualization(); 
-	view.onFrame = frame ;
+	
+} 	
+
+
+function  getGlobalVariablesFromCode(node)
+{
+	if(node.type == "Program")
+	{
+		 getGlobalVariablesFromCode(ast.body); 
+	}
+	else
+	{
+		for (i in node)
+		{
+			switch(node[i].type)
+			{
+				case "WhileStatement":
+					getGlobalVariablesFromCode(node[i])
+				break; 
+				case "BlockStatement":
+					getGlobalVariablesFromCode(node[i].body)
+				break ; 
+				case "VariableDeclaration": 
+					for (j in node[i].declarations)
+						user_entered_variables.push(node[i].declarations[j].id.name); 
+				break ; 
+			
+				
+			}// end switch 
+		}// end for
+	}// end else 
 }
+
 
 /* recursively walk the AST */ 
 function r_walk(node, level = 0 )
 {
+	
 	
 	if(node.type == "Program")
 	{
@@ -61,14 +111,14 @@ function r_walk(node, level = 0 )
 			case "WhileStatement":
 				/* change the test */ 
 				
-				let new_test = esprima.parse("(" + astring.generate(node[i].test)+ ") && (internal_continue_execution === true) ").body[0] ; // esprima.parse returna aprogram			
+				let new_test = esprima.parse("(" + astring.generate(node[i].test)+ ") && (internal_continue_execution === true) ").body[0] ; // esprima.parse return aprogram			
 				node[i].test = new_test.expression ; 
 				
 				
 				/* look for assignments (computed member expression) */
 				for(j in node[i].body.body)
 				{
-					
+					j = parseInt(j); 
 					
 					element = node[i].body.body[j]; 
 							
@@ -79,15 +129,11 @@ function r_walk(node, level = 0 )
 							operation = determineOperationType(element.expression);
 							if(operation.type === "MOVE")
 							{
-								//console.log("move from: ", operation.assignment.right_property , "to:" , operation.assignment.left_property )
 								var move_code = "move = {from:"+operation.assignment.right_property +" , to : " + operation.assignment.left_property + "};" ;
-								 								
 								
 								var move_ast = esprima.parse(move_code); 
 								
-								//console.log(move_ast.body) 
-								node[i].body.body.splice(j+1, 0 , move_ast.body[0]); 
-								 
+								node[i].body.body =  node[i].body.body.slice(0 , j).concat(node[i].body.body[j]).concat(move_ast.body.concat(node[i].body.body.slice(j+1))); 
 							}
 						}
 					}
@@ -100,6 +146,11 @@ function r_walk(node, level = 0 )
 				//{
 					if(node[i].body.type === "BlockStatement")
 					{
+						// add block level declaration of the move variable 
+						let code = "let move = {};"; 
+						let code_ast = esprima.parse(code).body; 
+						node[i].body.body = code_ast.concat(node[i].body.body); 	
+
 						node[i].body.body = node[i].body.body.concat(end_loop_ast.body)
 						//console.log(node[i].body)
 					}				
@@ -114,6 +165,7 @@ function r_walk(node, level = 0 )
 			case "BlockStatement":
 				r_walk(node[i].body, ++level)
 				break ; 
+			
 				
 			}
 		}
@@ -280,10 +332,10 @@ function getAssignmentParts(node)
 async function showVisualization()
 {
 	
-	context = document.getElementById("myCanvas").getContext('2d'); 
 	
-	var fontSize = 12; 
-	var cellPadding = 4;  	
+	var fontSize = 15; 
+	var cellPadding = 8;  	
+	var array ; 
 	
 	
 	for (var j  = 0 ; j < internal_array_monitor.length ; j++ )
@@ -302,30 +354,31 @@ async function showVisualization()
 		for (var i = 0 ; i < element.snapshot.length ; i++) 
 		{
 			var text ; 
-			var cell_width = 20 ; 	
+			var cell_width = 30 ; 	
 			
 			if(typeof element.snapshot[i] === "undefined" || element.snapshot[i]=== null)
 			{
 				text = new PointText(new Point(i*22 + 11 , 0 ) ); 
-				text.content = "-"; 
+				
 			}	
 			else
 			{
 				string = element.snapshot[i].toString() ;
 				if(string.length > 1)
-					cell_width = context.measureText(string).width + 4*cellPadding 	; 				
+					cell_width = context.measureText(string).width + 3*cellPadding 	; 				
 		
 				let x = current_length + cellPadding ; 
-				let y = fontSize  ; 
+				let y =40 -  fontSize  ; 
 				
 				text = new PointText(new Point(x ,y ))
 				text.content = string ; 
 				
 			}
 
-			text.fillColor = "black" ;
-			text.fontSize = fontSize ;  
 
+			text.fillColor = "black" ;
+			text.fontSize = fontSize ;
+			text.fontFamily = "cFont"; 
 			children.children.push(text) ; 
 
 			cell_widths.push(cell_width); 
@@ -337,21 +390,18 @@ async function showVisualization()
 				children.children.push(makeCell(cell_width , true).translate(new Point(current_length  ,0) ))
 
 			current_length += cell_width + 2  ; 
-
-			
-
 		}
 
-		
-	
+		var element = (j === internal_array_monitor.length) ?  internal_array_monitor[j+1] :   internal_array_monitor[j] ; 
 		if( element.move.to )
 		{
 			var to = element.move.to ; 
 			var from = element.move.from	 ; 
 			element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
+			reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
+	
 			element_to_animate = element_to_move ;
 	
-			console.log(element_to_animate)
 			/* calculate from_x */ 
 			var from_x  = 0 ; 
 			var sum_width = 0 ; 
@@ -372,8 +422,35 @@ async function showVisualization()
 			}
 			sum_width += cell_widths[to] / 2  ;
 			to_x = sum_width ;   
+			to_x = reference_element.position.x ;
+			
+			/* translate the elemtnt */ 
+			element_to_animate.animate({
+			  properties: {
+			    position: {
+			      x: to_x, // relative to the current position of the item. At the end, `x` will be : 275 
+			      y: "+0"     // absolute position. At the end, `y` will be : 150 
+			    },
+			 
+			  },
+			  settings: {
+			    duration:400,
+			    easing:"easeIn"
+			  }
+			});
 
-		
+			/* fade the element */ 
+			reference_element.animate({
+			  properties: {
+			    opacity: 0, 
+			 
+			  },
+			  settings: {
+			    duration:400,
+			    easing:"easeIn"
+			  }
+			});
+			
 		
 		
 			/* draw arrow */ 
@@ -381,28 +458,31 @@ async function showVisualization()
 			arrow.add(new Point(from_x , j*30-1)); 
 			arrow.add(new Point(to_x, j*30-1)) ; 
 			arrow.add(new Point(to_x - 5 , j*30-5)) 
-			arrow.strokeColor = "green"
+			//arrow.strokeColor = "green"
 		
 		
 		
 	
 		}
-		else 
-			console.log("No move detected"); 
 		
 		
-		var array = new CompoundPath( children);
+		if(array)
+			array.remove(); 
+
+
+		array = new CompoundPath( children);
 			
-		array.strokeColor = "black" ; 
-		array.strokeWidth = 2 ;
+		array.strokeColor = "#b82d88" ; 
+		array.strokeWidth = 1.5 ;
 		array.miterLimit= 1 ; 
 
-			
+		array.translate(new Point(10 , 100  ))
 
-		array.translate(new Point(0 , j*30)) ; 
-
+		 		
+		await sleep(800);
 			
 	}
+	
 	
 	view.draw(); 		
 
@@ -410,29 +490,22 @@ async function showVisualization()
 
 function frame()
 {
+	console.log(element_to_animate)
 	if(element_to_animate)
-	{
-		console.log(element_to_animate)
-	 
-	}
-	
-	
+	element_to_animate.translate(new Point(2, 0)) ; 
 }
-
-
-
 
 
 function makeCell(width=20 ,  closed=false )
 {                                                        
 	var cell = new Path(); 
-	cell.add(new Point(0, 0 ));
-	cell.add(new Point(0 , 20)); 
-	cell.add(new Point(width , 20));	
+	cell.add(new Point(0.5, 0.5 ));
+	cell.add(new Point(0.5 , 40.5)); 
+	cell.add(new Point(width+0.5 , 40+0.5));	
 
 	/* the last box in an array representation */ 
 	var end_cell = cell.clone(); 
-	end_cell.add(new Point(width, 0)); 
+	end_cell.add(new Point(width+0.5, 0.5)); 
 
 	return (closed) ? cell : end_cell ; 
 	
@@ -448,11 +521,11 @@ if(to_be_added.snapshot.length > 10)\n\
 console.log('This loop is being executed too many times, the array is too large')\n\
 }\n\
 else\n\
-	internal_array_monitor.push(to_be_added); " ; 	
+	internal_array_monitor.push(to_be_added);" ; 	
 
 end_loop_ast = esprima.parse(end_loop_code); 
 
-global_variables_ast = esprima.parse("internal_continue_execution = true ;internal_array_monitor = []; move = {};"); 
+global_variables_ast = esprima.parse("internal_continue_execution = true ;internal_array_monitor = [];"); 
 }
 
 

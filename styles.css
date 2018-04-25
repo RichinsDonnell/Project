@@ -1,0 +1,18 @@
+canvas 
+{
+
+        font-family:cFont; 
+}
+
+@font-face 
+{
+    font-family: cFont; 
+    src: url('IndieFlower-Regular.ttf');
+}
+
+button
+{
+	font-family:cFont;
+
+}
+

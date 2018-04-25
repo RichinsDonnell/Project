@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": false,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "declaration": true,
+        "moduleResolution": "node",
+        "target": "ES3"
+    },
+    "include": [
+        "src/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "dev",
+        "bower_components",
+        "src/export-standalone.ts"
+    ]
+}
