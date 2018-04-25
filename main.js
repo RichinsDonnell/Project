@@ -10,6 +10,9 @@ var element_to_animate_from ;
 var element_to_animate_to;  
 
 var user_entered_variables = [];
+var to_monitor = [] ; 
+
+var editor ; 
 
 function onWindowLoad()
 {
@@ -27,10 +30,11 @@ function onWindowLoad()
 	generateAst(); 
 
 	/* setup ace */
-	var editor = ace.edit("editor");
+	editor = ace.edit("editor");
     	editor.setTheme("ace/theme/custom");
-	editor.setOptions({showPrintMargin :false , highlightActiveLine  : false}) ;
+	editor.setOptions({showPrintMargin :false , highlightActiveLine  : false, behavioursEnabled: false }) ;
     	editor.session.setMode("ace/mode/javascript");
+	setInterval(codeEditorChange, 1500); 
 
 	/* resize the separator */ 
 	let separator = document.getElementById("separator"); 
@@ -46,25 +50,100 @@ function onWindowLoad()
 	
 	// #Uncomment the line below to see visualizations of the heterogeneous array growing , and being modified  
 	//program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1]; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
-	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
-
-
+	// program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
+	// program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = -1; while (++i < array.length ) { var m = j = i; while( ++j < array.length ) { if (array[m] > array[j]) m = j ; } var t = array[m] ; array[m] = array[i] ; array[i] = t ; } console.log(array)";
+	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55];  var increment = array.length / 2; while (increment > 0) { for (i = increment; i < array.length; i++) { var j = i; var temp = array[i]; while (j >= increment && array[j-increment] > temp) { array[j] = array[j-increment]; j = j - increment;} array[j] = temp;} if (increment == 2) { increment = 1; } else { increment = parseInt(increment*5 / 11);}} console.log(array)"
 	// remove this 
 	program = astring.generate(esprima.parse(program))
 	editor.setValue(program); 
 }
 
 
+function codeEditorChange()
+{
+	p = editor.getSession().getValue() ;
+	getGlobalVariablesFromCode(esprima.parse(p));
+	generateCheckboxes(); 
+	
+}
+
+function generateCheckboxes()
+{
+
+	let container = document.getElementById("selector"); 
+
+	let to_compare = [];  
+	let checkboxes = document.getElementsByClassName("vchk");
+	let create_elements = true ; 
+	if(checkboxes.length != 0 )
+	{
+		for(let i = 0 ; i < checkboxes.length ; i++) 
+		{	
+			to_compare.push(checkboxes[i].getAttribute("variable")) ; 
+		}	
+
+		let left_over = to_compare.filter(function (item , pos) 
+			{
+				if(user_entered_variables.indexOf(item) === -1)
+					return true ; 
+				else 
+					return false ;  
+			}) ; 
+
+		if(left_over.length != 0 )
+		{
+			container.innerHTML = "" ; 
+			create_elements = true ;  
+		}
+		else 
+			create_elements = false ; 
+	}
+
+	if(create_elements)
+	{
+		user_entered_variables = user_entered_variables.filter(function(item , pos) 
+			{ return user_entered_variables.indexOf(item) == pos;  });
+
+		 
+			for (i in user_entered_variables)
+			{	
+				let label = document.createElement("Label") ; 
+				label.setAttribute("class" , "check-container"); 
+				label.innerHTML = user_entered_variables[i] ; 
+					let input = document.createElement("input");
+					input.setAttribute("type" ,  "checkbox"  );
+					input.setAttribute("class" , "vchk")
+					input.setAttribute("variable" , user_entered_variables[i]); 
+			
+					let span = document.createElement("span"); 
+					span.setAttribute("class" , "checkmark");
+
+				label.appendChild(input) ; 
+				label.appendChild(span); 
+			
+				container.appendChild(label); 
+		
+		
+			}
+	}
+}
+
+
 function runSimulaton()
 {	
+	getVariablesToMonitor() ; 
+	
+	program = editor.session.getValue(); 
 	/* generate abstract syntax tree */ 
 	ast = esprima.parse(program, {loc: true}); 
-	
 	/* add global variables that hold the snapshot of the array */ 
 	ast.body = global_variables_ast.body.concat(ast.body)
 	
 	/* get a list of all variables that this tool can monitor, allow user to select one */ 
 	getGlobalVariablesFromCode(ast);
+
+	
+	generateCheckboxes(); 
 
 	/* recursively walk the ast, modifying it where necessary. This is where the code is analysed and necessary code is added in  */ 
 	r_walk(ast);
@@ -83,13 +162,30 @@ function runSimulaton()
 	
 } 	
 
+function getVariablesToMonitor()
+{
+	let checkboxes = document.getElementsByClassName("vchk"); 
+	console.log(checkboxes)
+	for(i in checkboxes)
+	{
+		if(checkboxes[i].checked)
+		{
+			to_monitor.push(checkboxes[i].getAttribute("variable"))
+		}
+	}
+
+}
 
 
 function  getGlobalVariablesFromCode(node)
 {
+	
+
 	if(node.type == "Program")
 	{
-		 getGlobalVariablesFromCode(ast.body); 
+		user_entered_variables  = [] ; 		
+		getGlobalVariablesFromCode(node.body); 
+		
 	}
 	else
 	{
@@ -137,30 +233,25 @@ function r_walk(node, level = 0 )
 				node[i].test = new_test.expression ; 
 				
 				
-				/* look for assignments (computed member expression) */
+				/* walk the statements found in the while block */ 
 				for(j in node[i].body.body)
 				{
 					j = parseInt(j); 
 					
 					element = node[i].body.body[j]; 
-							
-					if(element.type === "ExpressionStatement")
+					var statement_operation = getStatementOperation(element) ; 
+				
+					console.log(statement_operation.type)
+					switch(statement_operation.type)
 					{
-						if(element.expression.type === "AssignmentExpression" )
-						{
-							operation = determineOperationType(element.expression);
-							if(operation.type === "MOVE")
-							{
-								let action_code = astring.generate(element);  
-								let action = "action.code = '"+action_code +"'; action.type = 'move'; action.defined = true ;  action.operation = {from:"+operation.assignment.right_property +" , to : " + operation.assignment.left_property + "};" ;			console.log(astring.generate(element))
-								console.log(element)
-								let move_ast = esprima.parse(action); 
+						case "MOVE":
+							let action_code = astring.generate(element);  
+							let action = "action.code = '"+action_code +"'; action.type = 'move'; action.defined = true ;  action.operation = {from:"+statement_operation.assignment.right_property +" , to : " + statement_operation.assignment.left_property + "};" ;			
+							let move_ast = esprima.parse(action); 
 								
-								node[i].body.body =  node[i].body.body.slice(0 , j).concat(node[i].body.body[j]).concat(move_ast.body.concat(node[i].body.body.slice(j+1))); 
-							}
-						}
-					}
-					
+							node[i].body.body =  node[i].body.body.slice(0 , j).concat(node[i].body.body[j]).concat(move_ast.body.concat(node[i].body.body.slice(j+1))); 
+						break ; 
+					} 
 				}
 
 				
@@ -268,6 +359,93 @@ function buildBinaryExpression(expression)
 }
 
 
+function getStatementOperation(node)
+{
+	/* this node is an expression */ 
+	if(element.type === "ExpressionStatement")
+	{
+		if(element.expression.type === "AssignmentExpression") 
+		{		
+
+			console.log(element.expression.left.type)
+			if(element.expression.left.type === "MemberExpression" && element.expression.right.type === "MemberExpression" && element.expression.left.object.name === array_to_monitor)
+			{
+
+				let assignment = getAssignmentParts(element.expression); 
+				if(assignment.left_object_name === assignment.right_object_name) // MOVE
+				{
+					return {type : "MOVE" , assignment: assignment } ; 
+				} 
+			}
+			else if (element.expression.left.type ===  "MemberExpression" && element.expression.right.type === "Identifier" && element.expression.left.object.name === array_to_monitor)
+			{
+				 if(element.expression.left.property.type === "Identifier"  )
+					return {type: "MOVE_IN" , assignment: {from: element.expression.right.name , to: element.expression.left.property.name }} ;
+				else if(element.expression.left.property.type === "Literal")
+					return {type: "MOVE_IN" , assignment: {from: element.expression.right.name , to: element.expression.left.property.raw }} ;
+				else if(element.expression.left.property.type === "BinaryExpression")
+					return {type: "MOVE_IN" , assignment: {from: element.expression.right.name , to: buildBinaryExpression(element.expression.left.property) }} ;
+			}
+			else if(element.expression.left.type === "Idendifier" )
+			{
+
+				/* if it constitutes a move from a variable into the array . n.b. still record the variable */ 
+				if (element.expression.right.type === "MemberExpression" && element.expression.right.object.name === array_to_monitor )
+				{
+					 if(element.expression.right.property.type === "Identifier"  )
+						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: element.expression.right.property.name }} ;
+					else if(element.expression.right.property.type === "Literal")
+						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: element.expression.right.property.raw }} ;
+					else if(element.expression.right.property.type === "BinaryExpression")
+						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: buildBinaryExpression(element.expression.right.property) }} ;
+				}
+				else /* if it does not constitute a move out , it still is an assignment so get the new value */ 
+				{
+					console.log("ASSIGNMENT")
+				} 
+			}	
+
+			 
+		}
+	}
+	else if(element.type === "VariableDeclaration")
+	{	
+
+		
+		/* check to see if any of the declarations is a move_out of the array  */ 
+		for(d in element.declarations) 
+		{
+			
+			if(element.declarations[d].id.type === "Identifier")
+			{
+				if(element.declarations[d].init.type === "MemberExpression" && element.declarations[d].init.object.name == array_to_monitor )
+				{	
+					if(element.declarations[d].init.property.type === "BinaryExpression")
+					{
+						return {type: "MOVE_OUT" ,  assignment: {from : buildBinaryExpression(element.declarations[d].init.property) , to :  element.declarations[d].id.name  }}; 
+					}
+					else
+					{
+						return {type: "MOVE_OUT" ,  assignment: {from : element.declarations[d].init.property.name , to :  element.declarations[d].id.name  }}; 
+					}
+				}
+				else if (element.declarations[d].init.type === "BinaryExpression")
+				{	
+					return {type: "IDENTIFIER_CHANGE" , identifier : element.declarations[d].id.name , change_to : buildBinaryExpression(element.declarations[d].init)}
+				}
+				else if (element.declarations[d].init.type === "Identifier")
+				{
+					return {type: "IDENTIFIER_CHANGE" , identifier : element.declarations[d].id.name , change_to : element.declarations[d].init.name}
+				}
+	
+			}
+		} 
+	}
+
+	return {type: "OTHER"} ; 
+					
+} 
+
 function determineOperationType(node) 
 {
 	
@@ -281,6 +459,17 @@ function determineOperationType(node)
 			return {type : "MOVE" , assignment: assignment } ; 
 		}
 
+	}
+	else if (node.type === "VariableDeclaration")
+	{
+		/* check to see if any of the declarations is a move_out of the array  */ 
+		for(d in node.declarations) 
+		{
+			console.log("reached here")
+			if(node.declarations[d].init.type === "MemberExpression" && node.declarations[d].init.object.name == array_to_monitor && node.declarations[d].id.type === "Identifier")
+				if(node.declarations[d].init.property.type === "BinaryExpression")
+					console.log( {type: "MOVE_OUT" ,  assignment: {from : buildBinaryExpression(node.declarations[d].init.property) , to :  node.declarations[d].id.name  }}); 
+		}
 	}
 	else if (node.left.type === "MemberExpression" && node.left.object.name === array_to_monitor )
 	{
@@ -354,12 +543,24 @@ function getAssignmentParts(node)
 
 async function showVisualization()
 {
+
 	
+	
+	var current_code = document.getElementById("current_code"); 
 	
 	var fontSize = 15; 
 	var cellPadding = 8;  	
 	var array ; 
-	
+
+
+	let variable_paths = [] ; 
+
+	for (i in to_monitor)
+	{
+		variable_paths[i] = new PointText(new Point(50 , (i *20) + 150) ); 
+		variable_paths[i].content = ""+to_monitor[i] + " :"; 
+
+	}	
 	
 	for (var j  = 0 ; j < internal_array_monitor.length ; j++ )
 	{
@@ -379,20 +580,24 @@ async function showVisualization()
 			var text ; 
 			var cell_width = 30 ; 	
 			
+			/* if the cell is empty put a dash */
 			if(typeof element.snapshot[i] === "undefined" || element.snapshot[i]=== null)
 			{
 				text = new PointText(new Point(i*22 + 11 , 0 ) ); 
+				text.content ="-" ; 
 				
 			}	
 			else
 			{
-				string = element.snapshot[i].toString() ;
+				string = element.snapshot[i].toString() ; // get the contents of the cell 
 				if(string.length > 1)
-					cell_width = context.measureText(string).width + 3*cellPadding 	; 				
-		
+					cell_width = context.measureText(string).width + 3*cellPadding 	;  // measure it 				
+				
+				/* position it */ 		
 				let x = current_length + cellPadding ; 
 				let y =40 -  fontSize  ; 
 				
+				/* set the text */ 
 				text = new PointText(new Point(x ,y ))
 				text.content = string ; 
 				
@@ -415,15 +620,23 @@ async function showVisualization()
 			current_length += cell_width + 2  ; 
 		}
 
-		var element = (j === internal_array_monitor.length) ?  internal_array_monitor[j+1] :   internal_array_monitor[j] ; 
-		
+		/* draw all variables*/
+		/* for nnow , just get all the variables in the program */ 
+	
+
+		console.log(element ); 
+		/* if something is done to this particular array ellemt */ 
 		if( element.action.defined )
 		{
 
-			var to = element.action.operation.to ; 
-			var from = element.action.operation.from	 ; 
-			element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
-			reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
+			/* Display the code , that is being represented ... to the user  */ 
+			current_code.innerHTML = element.action.code + "<br> A move within the array"; 
+
+
+			let to = element.action.operation.to ; // the index of the cell to move to 
+			let from = element.action.operation.from; // the origin cell index 
+			let element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
+			let reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
 	
 			element_to_animate = element_to_move ;
 	
@@ -449,7 +662,7 @@ async function showVisualization()
 			to_x = sum_width ;   
 			to_x = reference_element.position.x ;
 			
-			/* translate the elemtnt */ 
+			/* translate the elemtnt*/ 
 			element_to_animate.animate({
 			  properties: {
 			    position: {
@@ -459,10 +672,11 @@ async function showVisualization()
 			 
 			  },
 			  settings: {
-			    duration:400,
-			    easing:"easeIn"
+			    duration:300,
+			    easing:"easeOut"
 			  }
 			});
+			
 
 			/* fade the element */ 
 			reference_element.animate({
@@ -471,24 +685,12 @@ async function showVisualization()
 			 
 			  },
 			  settings: {
-			    duration:400,
+			    duration:300,
 			    easing:"easeIn"
 			  }
 			});
-			
-		
-		
-			/* draw arrow */ 
-			var arrow = new Path(); 
-			arrow.add(new Point(from_x , j*30-1)); 
-			arrow.add(new Point(to_x, j*30-1)) ; 
-			arrow.add(new Point(to_x - 5 , j*30-5)) 
-			//arrow.strokeColor = "green"
-		
-		
-		
-	
 		}
+		else current_code.innerHTML = "" ; 
 		
 		
 		if(array)
@@ -497,11 +699,12 @@ async function showVisualization()
 
 		array = new CompoundPath( children);
 			
-		array.strokeColor = "#b82d88" ; 
+	//	array.strokeColor = "#b82d88" ; 
+		array.strokeColor = "#ffffff" ;		
 		array.strokeWidth = 1.5 ;
 		array.miterLimit= 1 ; 
 
-		array.translate(new Point(10 , 100  ))
+		array.translate(new Point(50 , 200  ))
 
 		 		
 		await sleep(800);

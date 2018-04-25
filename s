@@ -1,1 +1,2 @@
-we want to focus now on recording one line of code , that corresponds to the visualization being executed
+Detect moves out of the array -- variable declaration or assignment  
+Detect moves into the array 
