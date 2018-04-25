@@ -57,13 +57,19 @@ function onWindowLoad()
 	/*?!??!?!?!?!?!?!!?!?!?!?!!?!? Uncomment ONE of the following 'program' variables */
 	
 	// #Uncomment the line below to see visualizations of the heterogeneus array growing , and being modified  
+	// program = "var a = 0; var temp = 0  ;var array = [10,20,30]; while((a < 6) ) {array.push(a); array[a] =array[a+1]; temp = array[a] ; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
+	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ; var i = 0;  j= 0; value = 0 ; while( i  < array.length) {  value = array[i];  j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
+	//program = "var i = 0 ;  var array = [];  ; while(i < 10) { array[i] = Math.floor((Math.random() * 10) + 1);array[i] = array[i]; }" ;  
+	
+
 	// program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1]; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
 	// /*insert*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
 	
 	// /*shell sort*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55];  var increment = array.length / 2; while (increment > 0) { var i = increment; while(i < array.length) { var j = i; var temp = array[i]; while (j >= increment && array[j-increment] > temp) { array[j] = array[j-increment]; j = j - increment;} array[j] = temp; i++;} if (increment == 2) { increment = 1; } else { increment = parseInt(increment*5 / 11);}} console.log(array)";
-	///*bubble*/ program = "var array = [54, 26, 93, 17, 77, 31,  44, 55]; var len = array.length; var i = 0;     while( i < len){var j=0;var stop = len - i; while (j < stop){  if (array[j] > array[j+1]){ var temp = array[j]; array[j] = array[j+1]; array[j+1] = temp;} j++;}i++;} console.log(array)";
-	/*selection*/ program = "var array = [54, 26, 93, 17, 31, 44, 55]; var len = array.length; var i = 0; while (i < len){ var min = i; var j = i+1; while ( j < len){ if (array[j] < array[min]){ min = j; } j++; } if (i != min){ var temp = array[min]; array[min] = array[i]; array[i] = temp; } i++;}";
+	// /*bubble*/ program = "var array = [54, 26, 93, 17, 77, 31,  44, 55]; var len = array.length; var i = 0;     while( i < len){var j=0;var stop = len - i; while (j < stop){  if (array[j] > array[j+1]){ var temp = array[j]; array[j] = array[j+1]; array[j+1] = temp;} j++;}i++;} console.log(array)";
+	// /*selection*/ program = "var array = [54, 26, 93, 17, 31, 44, 55]; var len = array.length; var i = 0; while (i < len){ var min = i; var j = i+1; while ( j < len){ if (array[j] < array[min]){ min = j; } j++; } if (i != min){ var temp = array[min]; array[min] = array[i]; array[i] = temp; } i++;}";
 
+	
 	// remove this 
 	program = astring.generate(esprima.parse(program))
 	editor.setValue(program); 
@@ -230,7 +236,7 @@ function  getGlobalVariablesFromCode(node)
 
 
 /* recursively walk the AST */ 
-function r_walk(node, level = 0 )
+function r_walk(node, level = 0 , parent= null )
 {
 	
 	
@@ -240,122 +246,105 @@ function r_walk(node, level = 0 )
 	}
 	else
 	{
-		for (i in node)
-		{
+		if(parent)
+			node = parent.body; 
+
+		
+		for (var i = node.length-1;  i >= 0   ; i--)
+		{	
+			let statement_operation = {} ; 
+
 			switch(node[i].type)
 			{
 			case "VariableDeclaration" :
-				
-				let declaration = node[i] ; 
-				for(d in declaration.declarations)
-				{
-					if(declaration.declarations[d].id.type === "Identifier")
-					{
-						if(to_monitor.indexOf(declaration.declarations[d].id.name) > -1  )
-						{
-					
-							if(declaration.declarations[d].init === null)
-							{
-								console.log("Null primitive"); 
-								internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
-							}
-							else 
-							{
-								switch (declaration.declarations[d].init.type)
-								{
-									case "ArrayExpression": 
-										internal_monitor.push({name : declaration.declarations[d].id.name , type : "ARRAY" , action: null , snapshots : []}); 
-									break ; 
-									case "Literal":
-										internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
-									break ;
-									case "Identifier":
-										internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
-									break ;
-									   
-								
-								}
-							}
-							 
-							
-						}
-					}
-					else
-					{
-						console.log("invalid declaration found: 1") ; 
-					}
-				}
-			break ; 
-				
-			case "WhileStatement":
-				/* change the test */ 
-				let new_test = esprima.parse("(" + astring.generate(node[i].test)+ ") && (internal_continue_execution === true) ").body[0] ; // esprima.parse return aprogram			
-				node[i].test = new_test.expression ; 
-				
-				/* add definitions to top of the loop */ 
-				var definitions = "let snapshot = {};  let element; let array_element "; 
-				var definitions_ast = esprima.parse(definitions) ; 
-				node[i].body.body = definitions_ast.body.concat(node[i].body.body) ; 
-				
-				
-				/* walk the statements found in the while block */ 
-				for(let j = 0 ; j < node[i].body.body.length ; j++)
-				{
-					
-					
-					element = node[i].body.body[j]; 
-					console.log(element); 
-					var statement_operation = getStatementOperation(element) ; 
-				
-					console.log(statement_operation.type, to_monitor.indexOf(statement_operation.name), statement_operation.name)
-				
-					/* WHEN YOU CHANGE ONE , CHANGE ALL */ 
-					
-					if(to_monitor.indexOf(statement_operation.name) > -1 )
-					{
-						let action = "" ; 
-						let snapshot_code  = "" ; 
-						switch(statement_operation.type)
-						{
-							case "MOVE":
-								action = "snapshot.action = {}; snapshot.action.code = '"+astring.generate(element)+"'; snapshot.action.type = 'move'; snapshot.action.defined = true ;  snapshot.action.operation = {from:"+statement_operation.assignment.right_property +" , to : " + statement_operation.assignment.left_property + "};" ;			
-								action += "snapshot.snapshot = "+ statement_operation.name  +".slice(0);";  
+				statement_operation = getStatementOperation(node[i]);
 
-								snapshot_code = "array_element = getInternalMonitorElement('" + statement_operation.name + "'); array_element.element.snapshots.push({snapshot: snapshot.snapshot, action : snapshot.action}); console.log(array_element);" ;
-								snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
-								snapshot_code += "if(__internal_counter_i != array_element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 
-								let move_ast = esprima.parse(action + snapshot_code);
-								console.log(astring.generate(move_ast));  
-									
-								node[i].body.body =  node[i].body.body.slice(0 , j).concat(node[i].body.body[j]).concat(move_ast.body.concat(node[i].body.body.slice(j+1))); 
-							break ; 
-							case "VARIABLE_UPDATE_INCREMENT": 
-								console.log("we heere")
-								action = "snapshot.action = {} ;  snapshot.action.code = '"+ astring.generate(element)  + "' ;snapshot.action.type = 'primitive_increment' ; snapshot.action.defined = true ; snapshot.snapshot = "+ statement_operation.name +";" ;
-								snapshot_code = "element = getInternalMonitorElement('" + statement_operation.name + "'); element.element.snapshots.push(snapshot);" ;
-								snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
-								snapshot_code += "if(__internal_counter_i != element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 
-								   
-										
-								ast_string = action + snapshot_code ; 
-								_ast = esprima.parse(ast_string) ;
-								console.log(astring.generate(_ast));
-								
-								node[i].body.body = node[i].body.body.slice(0 , j+1 ).concat(_ast.body.concat(node[i].body.body.slice(j+1)) ); 
-																			
+ 						
+				setupInternalMonitor(node[i]);
+				
+
+			break ;
+
+			case "ExpressionStatement":
+				statement_operation = getStatementOperation(node[i]) ; 
+				element = node[i]; 
+
+				console.log(statement_operation.type , statement_operation.name);
+				
+				/* WHEN YOU CHANGE ONE , CHANGE ALL */ 
+				if(to_monitor.indexOf(statement_operation.name) > -1 )
+				{	
+					let action = "" ; 
+					let snapshot_code  = "" ; 
+					switch(statement_operation.type)
+					{
+						case "MOVE":
+							//console.log(node);	
+							action = "snapshot.action = {}; snapshot.action.code = '"+astring.generate(element)+"'; snapshot.action.type = 'move'; snapshot.action.defined = true ;  snapshot.action.operation = {from:"+statement_operation.assignment.right_property +" , to : " + statement_operation.assignment.left_property + "};" ;			
+							action += "snapshot.snapshot = "+ statement_operation.name  +".slice(0);";  
+
+							snapshot_code = "array_element = getInternalMonitorElement('" + statement_operation.name + "'); array_element.element.snapshots.push({snapshot: snapshot.snapshot, action : snapshot.action}); console.log(array_element);" ;
+							snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
+							snapshot_code += "if(__internal_counter_i != array_element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 							
+							let move_ast = esprima.parse(action + snapshot_code, {loc: true });
+							
+							/* This redundancy is neccessary because javascript reassigns the pointer if youre not modifying the object */ 
+							parent.body = node.slice(0, i).concat(node[i]).concat(move_ast.body).concat(node.slice(i+1)); 
+							node = parent.body ; 
+						break ; 
+
+						case "VARIABLE_UPDATE_INCREMENT": 
+							action = "snapshot.action = {} ;  snapshot.action.code = '"+ astring.generate(element)  + "' ;snapshot.action.type = 'primitive_increment' ; snapshot.action.defined = true ; snapshot.snapshot = "+ statement_operation.name +";" ;
+							snapshot_code = "element = getInternalMonitorElement('" + statement_operation.name + "'); element.element.snapshots.push(snapshot);" ;
+							snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
+							snapshot_code += "if(__internal_counter_i != element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 
+																
+							ast_string = action + snapshot_code ; 
+							_ast = esprima.parse(ast_string) ;
+							
+							/* This redundancy is neccessary because javascript reassigns the pointer if youre not modifying the object */ 
+							parent.body = node.slice(0, i+1).concat(_ast.body.concat(node.slice(i+1))) ;
+							node = parent.body ; 
 							break; 
-							case "VARIABLE_UPDATE_DECREMENT": 
-								console.log(statement_operation); 
-							break ; 
+						case "VARIABLE_UPDATE_DECREMENT": 
+							action = "snapshot.action = {} ;  snapshot.action.code = '"+ astring.generate(element)  + "' ;snapshot.action.type = 'primitive_decrement' ; snapshot.action.defined = true ; snapshot.snapshot = "+ statement_operation.name +";" ;
+							snapshot_code = "element = getInternalMonitorElement('" + statement_operation.name + "'); element.element.snapshots.push(snapshot);" ;
+							snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
+							snapshot_code += "if(__internal_counter_i != element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 
+							   									
+							ast_string = action + snapshot_code ; 
+							_ast = esprima.parse(ast_string) ;
+							
+							/* This redundancy is neccessary because javascript reassigns the pointer if youre not modifying the object */ 
+							parent.body = node.slice(0 , i+1).concat(_ast.body.concat(node.concat(i+1))) ; 
+							node = parent.body ; 
+						break ; 
+						case "VARIABLE_ASSIGNMENT_FROM_ARRAY":
+							action = "snapshot.action = {} ;  snapshot.action.code = '"+ astring.generate(element)  + "' ;snapshot.action.type = 'variable_assignment_from_array' ; snapshot.action.defined = true ; snapshot.snapshot = "+ statement_operation.name +";" ;
+							action += "snapshot.action.from_index = " +statement_operation.assignment.from_index + " ;" ;
+							action += "snapshot.action.from_name = '" +statement_operation.assignment.from_name + "'; " ;  
+							action += "snapshot.action.to = '"+statement_operation.assignment.to + "'; " ; 
+							snapshot_code = "element = getInternalMonitorElement('" + statement_operation.name + "'); element.element.snapshots.push(snapshot);" ;
+							snapshot_code += "for(var __internal_counter_i = 0 ; __internal_counter_i < internal_monitor.length ; __internal_counter_i++){ ";
+							snapshot_code += "if(__internal_counter_i != element.index){internal_monitor[__internal_counter_i].snapshots.push({action: null, snapshot: '-$-'})}}"; 
+																
+							ast_string = action + snapshot_code ; 
+							_ast = esprima.parse(ast_string) ;
+							
+							/* This redundancy is neccessary because javascript reassigns the pointer if youre not modifying the object */ 
+							parent.body = node.slice(0, i+1).concat(_ast.body.concat(node.slice(i+1))) ;
+							node = parent.body ; 
+							
+						break ; 
 						} 
 					}
-				}
+				
 
 				
 				/* add the end_loop code */ 
 				//if(level === 0 )
 				//{
-					if(node[i].body.type === "NOBlockStatement")
+					if(node[i].type === "NOBlockStatement")
 					{
 						// add block level declaration of the move variable 
 						let code = "let action = {};"; 
@@ -369,20 +358,80 @@ function r_walk(node, level = 0 )
 				//}
 				
 				/* recurse -- do it in this order for now to potentiall avoid loops */ 
-				r_walk(node[i] , ++level); 
+				//r_walk(node[i] , ++level); 
+				
+					
+			break ;				
+
+			case "WhileStatement":
+				/* change the test */ 
+				let new_test = esprima.parse("(" + astring.generate(node[i].test)+ ") && (internal_continue_execution === true) ").body[0] ; // esprima.parse return aprogram			
+				node[i].test = new_test.expression ; 
+				
+				/* add definitions to top of the loop */ 
+				var definitions = "let snapshot = {};  let element; let array_element "; 
+				var definitions_ast = esprima.parse(definitions) ; 
+				node[i].body.body = definitions_ast.body.concat(node[i].body.body) ; 
+
 				
 				
+				r_walk(node[i].body.body, ++level, node[i].body) ; 
 			break ; 
 			case "BlockStatement":
 				r_walk(node[i].body, ++level)
 				break ; 
 			default:
+				//console.log( node[i])
+		
 			break ; 
 				
 			}
 		}
 		
 	} 
+}
+
+function setupInternalMonitor(declaration)
+{
+	for(d in declaration.declarations)
+	{
+		if(declaration.declarations[d].id.type === "Identifier")
+		{
+			if(to_monitor.indexOf(declaration.declarations[d].id.name) > -1  )
+			{
+				if(declaration.declarations[d].init === null)
+				{
+					internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
+				}
+				else 
+				{
+
+					/* create the box that stores the snapshots */ 
+					switch (declaration.declarations[d].init.type)
+					{
+						case "ArrayExpression": 
+							internal_monitor.push({name : declaration.declarations[d].id.name , type : "ARRAY" , action: null , snapshots : []}); 
+						break ; 
+						case "Literal":
+							internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
+						break ;
+						case "Identifier":
+						
+							internal_monitor.push({name : declaration.declarations[d].id.name , type : "PRIMITIVE" , action: null , snapshots : []}); 
+						break ;
+						   
+					
+					}
+				}
+				 
+				
+			}
+		}
+		else
+		{
+			console.log("invalid declaration found: 1") ; 
+		}
+	}// end for 
 }
 
 function getInternalMonitorElement(name)
@@ -535,7 +584,9 @@ function isNumeric(test)
 	return !isNaN(test); 
 }
 
-function getStatementOperation(node)
+
+/* REDO THIS FUMCTION */
+function getStatementOperation(element)
 {
 	
 	/* this node is an expression */ 
@@ -551,20 +602,34 @@ function getStatementOperation(node)
 				/* this is an assignment to a variable, not an object or an array, get the value being passed to it */ 
 				if(element.expression.right.type === "Identifier")
 				{
-						if (element.expression.operation === "=")
-							return {type : "VARIABLE_ASSIGNMENT" , left : element.expression.left.name , right : element.expression.right.name} ; 
-						else 
-							console.log("FOUND INVALID OPERATION : 1") ; 
+					if (element.expression.operation === "=")
+						return {type : "VARIABLE_ASSIGNMENT" , left : element.expression.left.name , right : element.expression.right.name} ; 
+					else 
+						console.log("FOUND INVALID OPERATION : 1") ; 
 				}
 				else if(element.expression.right.type === "Literal" )
 				{
-						if (element.expression.operation === "=")
-							return {type : "VARIABLE_ASSIGNMENT" , left : element.expression.left.name , right : element.expression.right.raw } ; 
-						else 
-							console.log("FOUND INVALID OPERATION : 2 ")  ;
+					if (element.expression.operation === "=")
+						return {type : "VARIABLE_ASSIGNMENT" , left : element.expression.left.name , right : element.expression.right.raw } ; 
+					else 
+						console.log("FOUND INVALID OPERATION : 2 ")  ;
+				}
+				else if(element.expression.right.type === "MemberExpression")
+				{
+					if (to_monitor.indexOf(element.expression.right.object.name) > -1  )
+					{
+						 if(element.expression.right.property.type === "Identifier"  )
+							return {type: "VARIABLE_ASSIGNMENT_FROM_ARRAY" ,name: element.expression.left.name,  assignment: {to: element.expression.left.name , from_index: element.expression.right.property.name , from_name: element.expression.right.object.name}} ;
+						else if(element.expression.right.property.type === "Literal")
+							return {type: "VARIABLE_ASSIGNMENT_FROM_ARRAY" , name: element.expression.left.name , assignment: {to: element.expression.left.name , from_index: element.expression.right.property.raw , from_name: element.expression.right.object.name }} ;
+						else if(element.expression.right.property.type === "BinaryExpression")
+							return {type: "VARIABLE_ASSIGNMENT_FROM_ARRAY" , name: element.expression.left.name ,  assignment: {to: element.expression.left.name , from_index: buildBinaryExpression(element.expression.right.property), from_name: element.expression.right.object.name }} ;
+					}
 				}
 
 			}
+			
+
 			if(element.expression.left.type === "MemberExpression" && element.expression.right.type === "MemberExpression" && element.expression.left.object.name === array_to_monitor)
 			{
 
@@ -583,24 +648,7 @@ function getStatementOperation(node)
 				else if(element.expression.left.property.type === "BinaryExpression")
 					return {type: "MOVE_IN" , assignment: {from: element.expression.right.name , to: buildBinaryExpression(element.expression.left.property) }} ;
 			}
-			else if(element.expression.left.type === "Idendifier" )
-			{
-
-				/* if it constitutes a move from a variable into the array . n.b. still record the variable */ 
-				if (element.expression.right.type === "MemberExpression" && element.expression.right.object.name === array_to_monitor )
-				{
-					 if(element.expression.right.property.type === "Identifier"  )
-						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: element.expression.right.property.name }} ;
-					else if(element.expression.right.property.type === "Literal")
-						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: element.expression.right.property.raw }} ;
-					else if(element.expression.right.property.type === "BinaryExpression")
-						return {type: "MOVE_OUT" , assignment: {from: element.expression.left.name , to: buildBinaryExpression(element.expression.right.property) }} ;
-				}
-				else /* if it does not constitute a move out , it still is an assignment so get the new value */ 
-				{
-					
-				} 
-			}	
+			
 
 			 
 		}
@@ -634,7 +682,7 @@ function getStatementOperation(node)
 		/* check to see if any of the declarations is a move_out of the array  */ 
 		for(d in element.declarations) 
 		{
-			console.log(element.declarations[d])
+			//console.log(element.declarations[d])
 			if(element.declarations[d].id.type === "Identifier")
 			{
 				if(element.declarations[d].init)
@@ -687,7 +735,7 @@ function determineOperationType(node)
 		/* check to see if any of the declarations is a move_out of the array  */ 
 		for(d in node.declarations) 
 		{
-			console.log("reached here")
+			//console.log("reached here")
 			if(node.declarations[d].init.type === "MemberExpression" && node.declarations[d].init.object.name == array_to_monitor && node.declarations[d].id.type === "Identifier")
 				if(node.declarations[d].init.property.type === "BinaryExpression")
 					console.log( {type: "MOVE_OUT" ,  assignment: {from : buildBinaryExpression(node.declarations[d].init.property) , to :  node.declarations[d].id.name  }}); 
@@ -775,16 +823,22 @@ async function showVisualization()
 	var array ; 
 
 
-	let variable_paths = [] ; 
+	let variable_name_paths = [] ; 
+	let variable_value_paths = [] ;
 
 	for (i in to_monitor)
 	{
 		if(getInternalMonitorElement(to_monitor[i]).element.type === "PRIMITIVE")
 		{
-			variable_paths[i] = new PointText(new Point(50 , (i *20) + 150) ); 
-			variable_paths[i].content = ""+to_monitor[i] + " :"; 
-			variable_paths[i].fontSize = 16; 
-			variable_paths[i].fillColor = "white" ;
+			variable_name_paths[i] = new PointText(new Point(50 , (i *20) + 150) ); 
+			variable_name_paths[i].content = ""+to_monitor[i] + " : "; 
+			variable_name_paths[i].fontSize = 16; 
+			variable_name_paths[i].fillColor = "white" ;
+
+			variable_value_paths[i] = new PointText(new Point(50 + context.measureText(to_monitor[i]).width + 30, (i*20)+150 )); 
+			variable_value_paths[i].content  = "-"; 
+			variable_value_paths[i].fontSize = 16 ; 
+			variable_value_paths[i].fillColor = "white" ;
 		}
 	}	
 
@@ -799,14 +853,69 @@ async function showVisualization()
 				
 				if(snapshot.snapshot != "-$-")
 				{
+
+					if(snapshot.action && k !== 0 )
+					{
+						/* Perform animation from array to element */ 
+						if(snapshot.action.type === "variable_assignment_from_array")
+						{
+							current_code.innerHTML = snapshot.action.code ; 
+							let from_index = snapshot.action.from_index ;
+							let from_name = snapshot.action.from_name ;
+							let to_name = snapshot.action.to ;							
+
+							let element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from_index]; 
+							element_to_move.opacity = 1 ; 
+						
+							let reference_element  = variable_value_paths[ to_monitor.indexOf(to_name ) ];
+							let to_x = reference_element.position.x ; 
+							let to_y = reference_element.position.y ;  
+
+							//let to_x = "+0"; 
+							//let to_y = to_x; 
+							element_to_move.animate({
+								  properties: {
+								    position: {
+								      x: to_x, // relative to the current position of the item. At the end, `x` will be : 275 
+								      y: to_y     // absolute position. At the end, `y` will be : 150 
+								    },
+								 
+								  },
+								  settings: {
+								    duration:500,
+								    easing:"easeOut"
+								  }
+								});
+							reference_element.animate({
+							  properties: {
+							    opacity: 0, 
+							 
+							  },
+							  settings: {
+							    duration:500,
+							    easing:"easeIn"
+							  }
+							});
+							await sleep(800) ; 
+							reference_element.opacity = 1 ; 
+							element_to_move.opacity = 0 ; 
+						}
+					}
+
+				
 					/* find the path corresponding to the variable */ 
 					let index = to_monitor.indexOf(internal_monitor[j].name ) ; 
-					variable_paths[index].content = ""+to_monitor[index]+ ": "+ snapshot.snapshot ; 
-						current_code.innerHTML = snapshot.action.code ; 
-					await sleep(800) ; 
-				
 
+					/* update it */ 
+					variable_value_paths[index].content = snapshot.snapshot ; 
+						
+
+					
 				}
+
+				
+				
+				
 
 			}
 			else if(internal_monitor[j].type === "ARRAY")
@@ -816,6 +925,76 @@ async function showVisualization()
 				if(snapshot.snapshot != "-$-")
 				{
 
+					if( snapshot.action.defined && k !== 0 )
+					{
+						if(snapshot.action.type === "move")
+						{
+							/* Display the code , that is being represented ... to the user  */ 
+							current_code.innerHTML = snapshot.action.code + "<br> Element moved within the array"; 
+
+
+							let to = snapshot.action.operation.to ; // the index of the cell to move to 
+							let from = snapshot.action.operation.from; // the origin cell index 
+							let element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
+							console.log(from); 
+							var reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
+	
+							element_to_animate = element_to_move ;
+	
+							/* calculate from_x */ 
+							var from_x  = 0 ; 
+							var sum_width = 0 ; 
+							var i ; 
+							for(i = 0 ; i < from ; i++)
+							{
+								sum_width += cell_widths[i]+2; 
+							}
+							sum_width += cell_widths[from] / 2  ;
+							from_x = sum_width ;   
+
+							/* calculate to_x */ 
+							var to_x  = 0 ; 
+							sum_width = 0 ; 
+							for(i = 0 ; i < to ; i++)
+							{
+								sum_width += cell_widths[i]+2; 
+							}
+							sum_width += cell_widths[to] / 2  ;
+							to_x = sum_width ;   
+							to_x = reference_element.position.x ;
+			
+							/* translate the elemtnt*/ 
+							element_to_animate.animate({
+							  properties: {
+							    position: {
+							      x: to_x, // relative to the current position of the item. At the end, `x` will be : 275 
+							      y: "+0"     // absolute position. At the end, `y` will be : 150 
+							    },
+							 
+							  },
+							  settings: {
+							    duration:300,
+							    easing:"easeOut"
+							  }
+							});
+			
+
+							/* fade the element */ 
+							reference_element.animate({
+							  properties: {
+							    opacity: 0, 
+							 
+							  },
+							  settings: {
+							    duration:300,
+							    easing:"easeIn"
+							  }
+							});
+						}
+					}
+					else current_code.innerHTML = "" ; 
+		
+					await sleep(800);
 					var element = internal_array_monitor[j] ; 
 
 					var children = 
@@ -877,72 +1056,7 @@ async function showVisualization()
 
 					console.log(snapshot ); 
 					/* if something is done to this particular array ellemt */ 
-					if( snapshot.action.defined )
-					{
-
-						/* Display the code , that is being represented ... to the user  */ 
-						current_code.innerHTML = snapshot.action.code + "<br> Element moved within the array"; 
-
-
-						let to = snapshot.action.operation.to ; // the index of the cell to move to 
-						let from = snapshot.action.operation.from; // the origin cell index 
-						let element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
-						let reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
-	
-						element_to_animate = element_to_move ;
-	
-						/* calculate from_x */ 
-						var from_x  = 0 ; 
-						var sum_width = 0 ; 
-						var i ; 
-						for(i = 0 ; i < from ; i++)
-						{
-							sum_width += cell_widths[i]+2; 
-						}
-						sum_width += cell_widths[from] / 2  ;
-						from_x = sum_width ;   
-
-						/* calculate to_x */ 
-						var to_x  = 0 ; 
-						sum_width = 0 ; 
-						for(i = 0 ; i < to ; i++)
-						{
-							sum_width += cell_widths[i]+2; 
-						}
-						sum_width += cell_widths[to] / 2  ;
-						to_x = sum_width ;   
-						to_x = reference_element.position.x ;
-			
-						/* translate the elemtnt*/ 
-						element_to_animate.animate({
-						  properties: {
-						    position: {
-						      x: to_x, // relative to the current position of the item. At the end, `x` will be : 275 
-						      y: "+0"     // absolute position. At the end, `y` will be : 150 
-						    },
-						 
-						  },
-						  settings: {
-						    duration:300,
-						    easing:"easeOut"
-						  }
-						});
-			
-
-						/* fade the element */ 
-						reference_element.animate({
-						  properties: {
-						    opacity: 0, 
-						 
-						  },
-						  settings: {
-						    duration:300,
-						    easing:"easeIn"
-						  }
-						});
-					}
-					else current_code.innerHTML = "" ; 
-		
+					
 
 					if(compound_path_array)
 						compound_path_array.remove(); 
@@ -957,7 +1071,7 @@ async function showVisualization()
 					compound_path_array.translate(new Point(50 , 200  ))
 
 					 			
-					await sleep(800);
+					
 				}
 			
 			
