@@ -5,40 +5,43 @@ window.addEventListener("load" , onWindowLoad);
 
 array_to_monitor = "array"; 
 
+var element_to_animate;
+var element_to_animate_from ; 
+var element_to_animate_to;  
+
 function onWindowLoad()
 {
+	paper.setup('myCanvas');
+	unpause = false ; 
 	generateAst(); 
-
+	
+	
 	/*?!??!?!?!?!?!?!!?!?!?!?!!?!? Uncomment ONE of the following 'program' variables */
+	
 	// #Uncomment the line below to see visualizations of the heterogeneous array growing , and being modified  
-	// program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1] ;a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
-	// program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ; j-- ; }  array[j + 1]= value ; i++ ; } console.log(array)"; 
-	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = -1; while (++i < array.length ) { var m = j = i; while( ++j < array.length ) { if (array[m] > array[j]) m = j ; } var t = array[m] ; array[m] = array[i] ; array[i] = t ; } console.log(array)";
+	//program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1] ;a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
+	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ; j-- ; }  array[j + 1]= value ; i++ ; } console.log(array)"; 
 
-	// program = "array = []; array.push(10);";
 
 	/* generate abstract syntax tree */ 
 	ast = esprima.parse(program); 
-	console.log(ast);
-
-
+	
 	console.log("User Entered Code:"); 
 	console.log(astring.generate(ast)); 	
 	
-	/* add global variables that snapshot the array */ 
+	/* add global variables that hold the snapshot of the array */ 
 	ast.body = global_variables_ast.body.concat(ast.body)
 	
-	/* recursively wlk the ast */ 
+	/* recursively walk the ast, modifying it where necessary. This is where the code is analysed and necessary code is added in  */ 
 	r_walk(ast);
 
 	/* generate a javascript program from the ast */ 
 	var modified_program = astring.generate(ast) ; 
-	
 	console.log("Internally Generated Code:"); 
 	console.log(modified_program); 
 	eval(modified_program); 
 	showVisualization(); 
-	
+	view.onFrame = frame ;
 }
 
 /* recursively walk the AST */ 
@@ -118,6 +121,30 @@ function r_walk(node, level = 0 )
 	} 
 }
 
+/* called when unpause button is clicked */ 
+function unPause()
+{
+	unpause = true ;
+	console.log("clicked");  
+}
+
+/* Busy wait loop that pauses the code , the sleep is so that the loop doesnt hog the cpu */ 
+async function pause()
+{
+	while(unpause === false)
+	{
+		await sleep(50); 
+	}
+	unpause = false ; 
+}
+
+/* implement sleep */ 
+function sleep(ms) 
+{
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
 
 /**Todo : bracket support **/  
 function buildBinaryExpression(expression)
@@ -188,14 +215,6 @@ function determineOperationType(node)
 		return {type : "OTHER"} ; 			
 }
 
-function test(node)
-{
-	/* get left object name */ 
-	let left_object_name = ""; 
-	console.log(node.left.object.name) ;
-	return "" ;  
-	
-}
 
 function getAssignmentParts(node)
 {
@@ -257,46 +276,12 @@ function getAssignmentParts(node)
 
 
 
-/* 	index  -- the index offset of the code being added to the source code
-	delta  -- the amount of code being added, i.e. the change in size of the source code , the amount to add 
-	conduct thorough tests 
-*/ 
-function updateLocationArrays(index , delta) 
+
+async function showVisualization()
 {
-	console.log("function called")
-	for(i in location_arrays)
-	{
-		let block = location_arrays[i] ; 
-		
-		for (j in block )
-		{
-			console.log(index , block[j].start ) 
-			/* if the index falls inside the block of code , then add delta to the length*/ 
-			if(index > block[j].start && index < block[j].end)
-			{
-				block[j].end  += delta ;
-				console.log("expanding");   
-			}
-			/* if the index falls before the block of code */ 
-			else if(index < block[j].start)
-			{
-				console.log("pushing", index);  
-				location_arrays[i][j].start += delta; 
-				location_arrays[i][j].end += delta ;
-				
-				
-			}
-		}
-	}
 	
-}
-
-
-function showVisualization()
-{
-	paper.setup('myCanvas');
 	context = document.getElementById("myCanvas").getContext('2d'); 
-
+	
 	var fontSize = 12; 
 	var cellPadding = 4;  	
 	
@@ -353,45 +338,61 @@ function showVisualization()
 
 			current_length += cell_width + 2  ; 
 
-		}
-	
-		var to = element.move.to ; 
-		var from = element.move.from	 ; 
+			
 
-		/* calculate from_x */ 
-		var from_x  = 0 ; 
-		var sum_width = 0 ; 
-		var i ; 
-		for(i = 0 ; i < from ; i++)
-		{
-			sum_width += cell_widths[i]+2; 
 		}
-		sum_width += cell_widths[from] / 2  ;
-		from_x = sum_width ;   
 
-		/* calculate to_x */ 
-		var to_x  = 0 ; 
-		sum_width = 0 ; 
-		for(i = 0 ; i < to ; i++)
-		{
-			sum_width += cell_widths[i]+2; 
-		}
-		sum_width += cell_widths[to] / 2  ;
-		to_x = sum_width ;   
-		
-		/* draw arrow */ 
-		var arrow = new Path(); 
-		arrow.add(new Point(from_x , j*30-1)); 
-		arrow.add(new Point(to_x, j*30-1)) ; 
-		arrow.add(new Point(to_x - 5 , j*30-5)) 
-		arrow.strokeColor = "green"
-		
-		
 		
 	
+		if( element.move.to )
+		{
+			var to = element.move.to ; 
+			var from = element.move.from	 ; 
+			element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
+			element_to_animate = element_to_move ;
+	
+			console.log(element_to_animate)
+			/* calculate from_x */ 
+			var from_x  = 0 ; 
+			var sum_width = 0 ; 
+			var i ; 
+			for(i = 0 ; i < from ; i++)
+			{
+				sum_width += cell_widths[i]+2; 
+			}
+			sum_width += cell_widths[from] / 2  ;
+			from_x = sum_width ;   
+
+			/* calculate to_x */ 
+			var to_x  = 0 ; 
+			sum_width = 0 ; 
+			for(i = 0 ; i < to ; i++)
+			{
+				sum_width += cell_widths[i]+2; 
+			}
+			sum_width += cell_widths[to] / 2  ;
+			to_x = sum_width ;   
+
+		
+		
+		
+			/* draw arrow */ 
+			var arrow = new Path(); 
+			arrow.add(new Point(from_x , j*30-1)); 
+			arrow.add(new Point(to_x, j*30-1)) ; 
+			arrow.add(new Point(to_x - 5 , j*30-5)) 
+			arrow.strokeColor = "green"
+		
+		
+		
+	
+		}
+		else 
+			console.log("No move detected"); 
+		
 		
 		var array = new CompoundPath( children);
-		
+			
 		array.strokeColor = "black" ; 
 		array.strokeWidth = 2 ;
 		array.miterLimit= 1 ; 
@@ -400,17 +401,30 @@ function showVisualization()
 
 		array.translate(new Point(0 , j*30)) ; 
 
-				
+			
 	}
 	
 	view.draw(); 		
 
 }
 
+function frame()
+{
+	if(element_to_animate)
+	{
+		console.log(element_to_animate)
+	 
+	}
+	
+	
+}
+
+
+
+
 
 function makeCell(width=20 ,  closed=false )
-{
-
+{                                                        
 	var cell = new Path(); 
 	cell.add(new Point(0, 0 ));
 	cell.add(new Point(0 , 20)); 
