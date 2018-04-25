@@ -13,31 +13,52 @@ var user_entered_variables = [];
 
 function onWindowLoad()
 {
-	context = document.getElementById("myCanvas").getContext('2d'); 
+	let canvas =  document.getElementById("myCanvas") ; 
+	context = canvas.getContext('2d'); 
+	
 	//context.font= "12px cFont";
+	canvas.setAttribute("width" , "" +document.getElementById("visualizer").getBoundingClientRect().width ) ; 
 
+	/* setup paper */ 
 	paper.setup('myCanvas');
+
+	canvas.style.border ="none" ; 
 	unpause = false ; 
 	generateAst(); 
-	
-	
+
+	/* setup ace */
+	var editor = ace.edit("editor");
+    	editor.setTheme("ace/theme/custom");
+	editor.setOptions({showPrintMargin :false , highlightActiveLine  : false}) ;
+    	editor.session.setMode("ace/mode/javascript");
+
+	/* resize the separator */ 
+	let separator = document.getElementById("separator"); 
+	let left = document.getElementById("editor");
+	let right = document.getElementById("visualizer") 
+	separator.style.width = right.getBoundingClientRect().x - (left.getBoundingClientRect().x + left.getBoundingClientRect().width) ; 	
+
+	/* position the separator */ 
+	//let style = window.getComputedStyle(left); 
+	//separator.style.left =  left.getBoundingClientRect().x + left.getBoundingClientRect().width ; 
+
 	/*?!??!?!?!?!?!?!!?!?!?!?!!?!? Uncomment ONE of the following 'program' variables */
 	
 	// #Uncomment the line below to see visualizations of the heterogeneous array growing , and being modified  
-	// program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1]; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
-	// /*insert*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
-	
-	// /*shell sort*/program = "var array = [54, 26, 93, 17, 77, 31,  44, 55];  var increment = array.length / 2; while (increment > 0) { var i = increment; while(i < array.length) { var j = i; var temp = array[i]; while (j >= increment && array[j-increment] > temp) { array[j] = array[j-increment]; j = j - increment;} array[j] = temp; i++;} if (increment == 2) { increment = 1; } else { increment = parseInt(increment*5 / 11);}} console.log(array)";
-	///*bubble*/ program = "var array = [54, 26, 93, 17, 77, 31,  44, 55]; var len = array.length; var i = 0;     while( i < len){var j=0;var stop = len - i; while (j < stop){  if (array[j] > array[j+1]){ var temp = array[j]; array[j] = array[j+1]; array[j+1] = temp;} j++;}i++;} console.log(array)";
-	/*selection*/ program = "var array = [54, 26, 93, 17, 31, 44, 55]; var len = array.length; var i = 0; while (i < len){ var min = i; var j = i+1; while ( j < len){ if (array[j] < array[min]){ min = j; } j++; } if (i != min){ var temp = array[min]; array[min] = array[i]; array[i] = temp; } i++;}";
+	//program = "var a = 1 ;array = []; array.push(100); while((a < 200) ) { if(a===2) array.push('String test'); if(a===3)array.push('A String') ; array.push(a) ;array[a] =array[a-1]; a++; }  " ; 		// #insertion sort --- Uncomment the line below to see visualizations of an insertion sort algorithm
+	program = "var array = [54, 26, 93, 17, 77, 31,  44, 55] ;var i = 0, j= 0 ; while( i  < array.length) { let value = array[i]; var j = i -1 ; while (j > -1 && array[j] > value){ array[j + 1] = array[j] ;   j-- ; }  array[j + 1]= value ; i++ ; }  "; 
 
 
+	// remove this 
+	program = astring.generate(esprima.parse(program))
+	editor.setValue(program); 
+}
+
+
+function runSimulaton()
+{	
 	/* generate abstract syntax tree */ 
-	ast = esprima.parse(program); 
-	
-
-	console.log("User Entered Code:"); 
-	console.log(astring.generate(ast)); 	
+	ast = esprima.parse(program, {loc: true}); 
 	
 	/* add global variables that hold the snapshot of the array */ 
 	ast.body = global_variables_ast.body.concat(ast.body)
@@ -61,6 +82,7 @@ function onWindowLoad()
 	showVisualization(); 
 	
 } 	
+
 
 
 function  getGlobalVariablesFromCode(node)
@@ -129,9 +151,10 @@ function r_walk(node, level = 0 )
 							operation = determineOperationType(element.expression);
 							if(operation.type === "MOVE")
 							{
-								var move_code = "move = {from:"+operation.assignment.right_property +" , to : " + operation.assignment.left_property + "};" ;
-								
-								var move_ast = esprima.parse(move_code); 
+								let action_code = astring.generate(element);  
+								let action = "action.code = '"+action_code +"'; action.type = 'move'; action.defined = true ;  action.operation = {from:"+operation.assignment.right_property +" , to : " + operation.assignment.left_property + "};" ;			console.log(astring.generate(element))
+								console.log(element)
+								let move_ast = esprima.parse(action); 
 								
 								node[i].body.body =  node[i].body.body.slice(0 , j).concat(node[i].body.body[j]).concat(move_ast.body.concat(node[i].body.body.slice(j+1))); 
 							}
@@ -147,7 +170,7 @@ function r_walk(node, level = 0 )
 					if(node[i].body.type === "BlockStatement")
 					{
 						// add block level declaration of the move variable 
-						let code = "let move = {};"; 
+						let code = "let action = {};"; 
 						let code_ast = esprima.parse(code).body; 
 						node[i].body.body = code_ast.concat(node[i].body.body); 	
 
@@ -393,10 +416,12 @@ async function showVisualization()
 		}
 
 		var element = (j === internal_array_monitor.length) ?  internal_array_monitor[j+1] :   internal_array_monitor[j] ; 
-		if( element.move.to )
+		
+		if( element.action.defined )
 		{
-			var to = element.move.to ; 
-			var from = element.move.from	 ; 
+
+			var to = element.action.operation.to ; 
+			var from = element.action.operation.from	 ; 
 			element_to_move = children.children.filter(obj => obj.constructor.name === "PointText" )[from]; 
 			reference_element  = children.children.filter(obj => obj.constructor.name === "PointText") [to]; 
 	
@@ -514,7 +539,7 @@ function makeCell(width=20 ,  closed=false )
 
 function generateAst()
 {
-	var end_loop_code = "let to_be_added = {snapshot: array.slice(0), move : move}	; \n\
+	var end_loop_code = "let to_be_added = {snapshot: array.slice(0), action : action}	; \n\
 if(to_be_added.snapshot.length > 10)\n\
 {\n\
 	internal_continue_execution = false ;\n\
